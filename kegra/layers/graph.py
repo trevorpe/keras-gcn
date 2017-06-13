@@ -7,12 +7,11 @@ from keras.engine.topology import Node
 import keras.backend as K
 
 
-def GraphInput(name=None, dtype=K.floatx(), sparse=False,
-          tensor=None):
+def GraphInput(name=None, dtype=K.floatx(), sparse=False, tensor=None):
     """ TODO: Docstring """
     shape = (None, None)
     input_layer = GraphInputLayer(batch_input_shape=shape,
-                                name=name, sparse=sparse, input_dtype=dtype)
+                                  name=name, sparse=sparse, input_dtype=dtype)
     outputs = input_layer.inbound_nodes[0].output_tensors
     if len(outputs) == 1:
         return outputs[0]
@@ -44,11 +43,14 @@ class GraphInputLayer(Layer):
             name = prefix + '_' + str(K.get_uid(prefix))
         self.name = name
 
-        if not batch_input_shape:
-            assert input_shape, 'An Input layer should be passed either a `batch_input_shape` or an `input_shape`.'
+        if not batch_input_shape and not input_shape:
+            raise Exception('An Input layer should be passed either a '
+                            '`batch_input_shape` or an `input_shape`.')
+        elif not batch_input_shape:
             batch_input_shape = (None,) + tuple(input_shape)
         else:
             batch_input_shape = tuple(batch_input_shape)
+
         if not input_dtype:
             input_dtype = K.floatx()
 
@@ -92,7 +94,8 @@ class GraphConvolution(Layer):
         self.output_dim = output_dim  # number of features per node
         self.support = support  # filter support / number of weights
 
-        assert support >= 1
+        if support < 1:
+            raise Exception('`support` must be at least 1')
 
         self.W_regularizer = regularizers.get(W_regularizer)
         self.b_regularizer = regularizers.get(b_regularizer)
@@ -114,17 +117,19 @@ class GraphConvolution(Layer):
 
     def build(self, input_shapes):
         features_shape = input_shapes[0]
-        assert len(features_shape) == 2
+        if len(features_shape) != 2:
+            raise Exception('`features_shape` must have two dimensions')
         self.input_dim = features_shape[1]
 
-        self.W = self.add_weight((self.input_dim * self.support, self.output_dim),
+        self.W = self.add_weight((self.input_dim * self.support,
+                                  self.output_dim),
                                  initializer=self.init,
-                                 name='{}_W'.format(self.name),
+                                 name='{0}_W'.format(self.name),
                                  regularizer=self.W_regularizer)
         if self.bias:
             self.b = self.add_weight((self.output_dim,),
                                      initializer='zero',
-                                     name='{}_b'.format(self.name),
+                                     name='{0}_b'.format(self.name),
                                      regularizer=self.b_regularizer)
 
         if self.initial_weights is not None:
@@ -133,9 +138,9 @@ class GraphConvolution(Layer):
 
     def call(self, inputs, mask=None):
         features = inputs[0]
-        A = inputs[1:]  # list of basis functions
+        A = inputs[1:]  # List of basis functions
 
-        # convolve
+        # Convolve
         supports = list()
         for i in range(self.support):
             supports.append(K.dot(A[i], features))

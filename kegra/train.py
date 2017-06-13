@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import print_function, division
 
 from keras.layers import Input, Dropout
 from keras.models import Model
@@ -20,13 +20,15 @@ PATIENCE = 10  # early stopping patience
 
 # Get data
 X, A, y = load_data(dataset=DATASET)
-y_train, y_val, y_test, idx_train, idx_val, idx_test, train_mask = get_splits(y)
+splits = get_splits(y)
+y_train, y_val, y_test, idx_train, idx_val, idx_test, train_mask = splits
 
 # Normalize X
-X = np.diag(1./np.array(X.sum(1)).flatten()).dot(X)
+X = np.diag(1 / np.array(X.sum(1)).flatten()).dot(X)
 
 if FILTER == 'localpool':
-    """ Local pooling filters (see 'renormalization trick' in Kipf & Welling, arXiv 2016) """
+    # Local pooling filters
+    # (see 'renormalization trick' in Kipf & Welling, arXiv 2016)
     print('Using local pooling filters...')
     A_ = preprocess_adj(A, SYM_NORM)
     support = 1
@@ -34,13 +36,13 @@ if FILTER == 'localpool':
     G = [GraphInput(sparse=True)]
 
 elif FILTER == 'chebyshev':
-    """ Chebyshev polynomial basis filters (Defferard et al., NIPS 2016)  """
+    # Chebyshev polynomial basis filters (Defferard et al., NIPS 2016)
     print('Using Chebyshev polynomial basis filters...')
     L = normalized_laplacian(A, SYM_NORM)
     L_scaled = rescale_laplacian(L)
     T_k = chebyshev_polynomial(L_scaled, MAX_DEGREE)
     support = MAX_DEGREE + 1
-    graph = [X]+T_k
+    graph = [X] + T_k
     G = [GraphInput(sparse=True) for _ in range(support)]
 
 else:
@@ -49,15 +51,15 @@ else:
 X_in = Input(shape=(X.shape[1],))
 
 # Define model architecture
-# NOTE: We pass arguments for graph convolutional layers as a list of tensors.
-# This is somewhat hacky, more elegant options would require rewriting the Layer base class.
 H = Dropout(0.5)(X_in)
-H = GraphConvolution(16, support, activation='relu', W_regularizer=l2(5e-4))([H]+G)
+H = GraphConvolution(16, support,
+                     activation='relu',
+                     W_regularizer=l2(5e-4))([H] + G)
 H = Dropout(0.5)(H)
-Y = GraphConvolution(y.shape[1], support, activation='softmax')([H]+G)
+Y = GraphConvolution(y.shape[1], support, activation='softmax')([H] + G)
 
 # Compile model
-model = Model(input=[X_in]+G, output=Y)
+model = Model(input=[X_in] + G, output=Y)
 model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=0.01))
 
 # Helper variables for main training loop
@@ -66,14 +68,19 @@ preds = None
 best_val_loss = 99999
 
 # Fit
-for epoch in range(1, NB_EPOCH+1):
+for epoch in range(1, NB_EPOCH + 1):
 
     # Log wall-clock time
     t = time.time()
 
-    # Single training iteration (we mask nodes without labels for loss calculation)
-    model.fit(graph, y_train, sample_weight=train_mask,
-              batch_size=A.shape[0], nb_epoch=1, shuffle=False, verbose=0)
+    # Single training iteration
+    # (we mask nodes without labels for loss calculation)
+    model.fit(graph, y_train,
+              sample_weight=train_mask,
+              batch_size=A.shape[0],
+              nb_epoch=1,
+              shuffle=False,
+              verbose=0)
 
     # Predict on full dataset
     preds = model.predict(graph, batch_size=A.shape[0])

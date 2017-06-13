@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import print_function, division
 
 import scipy.sparse as sp
 import numpy as np
@@ -7,8 +7,10 @@ from scipy.sparse.linalg.eigen.arpack import eigsh, ArpackNoConvergence
 
 def encode_onehot(labels):
     classes = set(labels)
-    classes_dict = {c: np.identity(len(classes))[i, :] for i, c in enumerate(classes)}
-    labels_onehot = np.array(map(classes_dict.get, labels), dtype=np.int32)
+    classes_dict = {c: np.identity(len(classes))[i, :]
+                    for i, c in enumerate(classes)}
+    labels_onehot = np.array(map(classes_dict.get, labels),
+                             dtype=np.int32)
     return labels_onehot
 
 
@@ -16,23 +18,27 @@ def load_data(path="data/cora/", dataset="cora"):
     """Load citation network dataset (cora only for now)"""
     print('Loading {} dataset...'.format(dataset))
 
-    idx_features_labels = np.loadtxt("{}{}.content".format(path, dataset), dtype=np.dtype(str))
+    idx_features_labels = np.loadtxt("{0}{1}.content".format(path, dataset),
+                                     dtype=np.dtype(str))
     features = sp.csr_matrix(idx_features_labels[:, 1:-2], dtype=np.float32)
     labels = encode_onehot(idx_features_labels[:, -1])
 
     # build graph
     idx = np.array(idx_features_labels[:, 0], dtype=np.int32)
     idx_map = {j: i for i, j in enumerate(idx)}
-    edges_unordered = np.loadtxt("{}{}.cites".format(path, dataset), dtype=np.int32)
+    edges_unordered = np.loadtxt("{0}{1}.cites".format(path, dataset),
+                                 dtype=np.int32)
     edges = np.array(map(idx_map.get, edges_unordered.flatten()),
                      dtype=np.int32).reshape(edges_unordered.shape)
     adj = sp.coo_matrix((np.ones(edges.shape[0]), (edges[:, 0], edges[:, 1])),
-                        shape=(labels.shape[0], labels.shape[0]), dtype=np.float32)
+                        shape=(labels.shape[0], labels.shape[0]),
+                        dtype=np.float32)
 
     # build symmetric adjacency matrix
     adj = adj + adj.T.multiply(adj.T > adj) - adj.multiply(adj.T > adj)
 
-    print('Dataset has {} nodes, {} edges, {} features.'.format(adj.shape[0], edges.shape[0], features.shape[1]))
+    print('Dataset has {0} nodes, {1} edges, {2} features.'
+          ''.format(adj.shape[0], edges.shape[0], features.shape[1]))
 
     return features.todense(), adj, labels
 
@@ -87,7 +93,8 @@ def evaluate_preds(preds, labels, indices):
     split_acc = list()
 
     for y_split, idx_split in zip(labels, indices):
-        split_loss.append(categorical_crossentropy(preds[idx_split], y_split[idx_split]))
+        split_loss.append(categorical_crossentropy(preds[idx_split],
+                                                   y_split[idx_split]))
         split_acc.append(accuracy(preds[idx_split], y_split[idx_split]))
 
     return split_loss, split_acc
@@ -102,17 +109,24 @@ def normalized_laplacian(adj, symmetric=True):
 def rescale_laplacian(laplacian):
     try:
         print('Calculating largest eigenvalue of normalized graph Laplacian...')
-        largest_eigval = eigsh(laplacian, 1, which='LM', return_eigenvectors=False)[0]
+        largest_eigval = eigsh(laplacian, 1,
+                               which='LM',
+                               return_eigenvectors=False)[0]
     except ArpackNoConvergence:
-        print('Eigenvalue calculation did not converge! Using largest_eigval=2 instead.')
+        print('Eigenvalue calculation did not converge! '
+              'Using largest_eigval=2 instead.')
         largest_eigval = 2
 
-    scaled_laplacian = (2. / largest_eigval) * laplacian - sp.eye(laplacian.shape[0])
+    scaled_laplacian = (2 / largest_eigval) * laplacian \
+        - sp.eye(laplacian.shape[0])
     return scaled_laplacian
 
 
 def chebyshev_polynomial(X, k):
-    """Calculate Chebyshev polynomials up to order k. Return a list of sparse matrices."""
+    """
+    Calculate Chebyshev polynomials up to order k.
+    Return a list of sparse matrices.
+    """
     print("Calculating Chebyshev polynomials up to order {}...".format(k))
 
     T_k = list()
