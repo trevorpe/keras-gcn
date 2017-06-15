@@ -69,14 +69,19 @@ def get_splits(y):
     idx_train = range(140)
     idx_val = range(200, 500)
     idx_test = range(500, 1500)
+
+    train_mask = sample_mask(idx_train, y.shape[0])
+    val_mask = sample_mask(idx_val, y.shape[0])
+    test_mask = sample_mask(idx_test, y.shape[0])
+
     y_train = np.zeros(y.shape, dtype=np.int32)
     y_val = np.zeros(y.shape, dtype=np.int32)
     y_test = np.zeros(y.shape, dtype=np.int32)
-    y_train[idx_train] = y[idx_train]
-    y_val[idx_val] = y[idx_val]
-    y_test[idx_test] = y[idx_test]
-    train_mask = sample_mask(idx_train, y.shape[0])
-    return y_train, y_val, y_test, idx_train, idx_val, idx_test, train_mask
+    y_train[train_mask] = y[train_mask]
+    y_val[val_mask] = y[val_mask]
+    y_test[test_mask] = y[test_mask]
+
+    return y_train, y_val, y_test, train_mask, val_mask, test_mask
 
 
 def categorical_crossentropy(preds, labels):
@@ -87,15 +92,14 @@ def accuracy(preds, labels):
     return np.mean(np.equal(np.argmax(labels, 1), np.argmax(preds, 1)))
 
 
-def evaluate_preds(preds, labels, indices):
-
+def evaluate_preds(preds, labels, masks):
     split_loss = list()
     split_acc = list()
 
-    for y_split, idx_split in zip(labels, indices):
-        split_loss.append(categorical_crossentropy(preds[idx_split],
-                                                   y_split[idx_split]))
-        split_acc.append(accuracy(preds[idx_split], y_split[idx_split]))
+    for y_split, mask in zip(labels, masks):
+        split_loss.append(categorical_crossentropy(preds[mask],
+                                                   y_split[mask]))
+        split_acc.append(accuracy(preds[mask], y_split[mask]))
 
     return split_loss, split_acc
 

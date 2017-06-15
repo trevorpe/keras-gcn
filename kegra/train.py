@@ -51,8 +51,7 @@ def main():
 
     # Get data
     X, A, y = load_data(dataset=args.dataset)
-    splits = get_splits(y)
-    y_train, y_val, y_test, idx_train, idx_val, idx_test, train_mask = splits
+    y_train, y_val, y_test, train_mask, val_mask, test_mask = get_splits(y)
 
     # Normalize X
     X = np.diag(1 / np.array(X.sum(1)).flatten()).dot(X)
@@ -120,7 +119,7 @@ def main():
 
         # Train / validation scores
         train_val_loss, train_val_acc = evaluate_preds(preds, [y_train, y_val],
-                                                       [idx_train, idx_val])
+                                                       [train_mask, val_mask])
         print("Epoch: {:04d}".format(epoch),
               "train_loss= {:.4f}".format(train_val_loss[0]),
               "train_acc= {:.4f}".format(train_val_acc[0]),
@@ -139,7 +138,7 @@ def main():
             wait += 1
 
     # Testing
-    test_loss, test_acc = evaluate_preds(preds, [y_test], [idx_test])
+    test_loss, test_acc = evaluate_preds(preds, [y_test], [test_mask])
     print("Test set results:",
           "loss= {:.4f}".format(test_loss[0]),
           "accuracy= {:.4f}".format(test_acc[0]))
