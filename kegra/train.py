@@ -1,7 +1,8 @@
 from __future__ import print_function, division
 
-import time
 import argparse
+
+import numpy as np
 
 from keras.layers import Input, Dropout
 from keras.models import Model
@@ -9,7 +10,8 @@ from keras.optimizers import Adam
 from keras.regularizers import l2
 
 from kegra.layers.graph import GraphConvolution
-from kegra.utils import *
+from kegra.utils import accuracy_metric, load_data, preprocess_adj, \
+    normalized_laplacian, chebyshev_polynomial, rescale_laplacian, get_splits
 
 # Define parameters
 DATASET = 'cora'
@@ -92,56 +94,24 @@ def main():
     model = Model(inputs=[X_in] + G,
                   outputs=Y)
     model.compile(loss='categorical_crossentropy',
-                  optimizer=Adam(lr=0.01))
+                  optimizer=Adam(lr=0.01),
+                  metrics=[accuracy_metric])
 
-    # Helper variables for main training loop
-    wait = 0
-    preds = None
-    best_val_loss = 99999
-
-    # Fit
-    for epoch in range(1, args.epochs + 1):
-
-        # Log wall-clock time
-        t = time.time()
-
-        # Single training iteration
-        # (we mask nodes without labels for loss calculation)
-        model.fit(graph, y_train,
-                  sample_weight=train_mask,
-                  batch_size=A.shape[0],
-                  epochs=1,
-                  shuffle=False,
-                  verbose=0)
-
-        # Predict on full dataset
-        preds = model.predict(graph, batch_size=A.shape[0])
-
-        # Train / validation scores
-        train_val_loss, train_val_acc = evaluate_preds(preds, [y_train, y_val],
-                                                       [train_mask, val_mask])
-        print("Epoch: {:04d}".format(epoch),
-              "train_loss= {:.4f}".format(train_val_loss[0]),
-              "train_acc= {:.4f}".format(train_val_acc[0]),
-              "val_loss= {:.4f}".format(train_val_loss[1]),
-              "val_acc= {:.4f}".format(train_val_acc[1]),
-              "time= {:.4f}".format(time.time() - t))
-
-        # Early stopping
-        if train_val_loss[1] < best_val_loss:
-            best_val_loss = train_val_loss[1]
-            wait = 0
-        else:
-            if wait >= args.patience:
-                print('Epoch {}: early stopping'.format(epoch))
-                break
-            wait += 1
+    model.fit(graph, y_train,
+              sample_weight=train_mask,
+              validation_data=(graph, y_val, val_mask),
+              batch_size=A.shape[0],
+              epochs=args.epochs,
+              shuffle=False,
+              verbose=1)
 
     # Testing
-    test_loss, test_acc = evaluate_preds(preds, [y_test], [test_mask])
+    test_loss, test_acc = model.evaluate(graph, y_test,
+                                         sample_weight=test_mask,
+                                         batch_size=A.shape[0])
     print("Test set results:",
-          "loss= {:.4f}".format(test_loss[0]),
-          "accuracy= {:.4f}".format(test_acc[0]))
+          "loss= {}".format(test_loss),
+          "accuracy= {}".format(test_acc))
 
 
 if __name__ == '__main__':

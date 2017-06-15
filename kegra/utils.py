@@ -3,6 +3,7 @@ from __future__ import print_function, division
 import scipy.sparse as sp
 import numpy as np
 from scipy.sparse.linalg.eigen.arpack import eigsh, ArpackNoConvergence
+import keras.backend as K
 
 
 def encode_onehot(labels):
@@ -84,24 +85,14 @@ def get_splits(y):
     return y_train, y_val, y_test, train_mask, val_mask, test_mask
 
 
-def categorical_crossentropy(preds, labels):
-    return np.mean(-np.log(np.extract(labels, preds)))
-
-
-def accuracy(preds, labels):
-    return np.mean(np.equal(np.argmax(labels, 1), np.argmax(preds, 1)))
-
-
-def evaluate_preds(preds, labels, masks):
-    split_loss = list()
-    split_acc = list()
-
-    for y_split, mask in zip(labels, masks):
-        split_loss.append(categorical_crossentropy(preds[mask],
-                                                   y_split[mask]))
-        split_acc.append(accuracy(preds[mask], y_split[mask]))
-
-    return split_loss, split_acc
+def accuracy_metric(y_true, y_pred):
+    valid_indices = K.sum(y_true, axis=-1)
+    valid_indices = K.equal(valid_indices, 1).nonzero()
+    y_true_masked = y_true[valid_indices]
+    y_pred_masked = y_pred[valid_indices]
+    return K.cast(K.equal(K.argmax(y_true_masked, axis=-1),
+                          K.argmax(y_pred_masked, axis=-1)),
+                  K.floatx())
 
 
 def normalized_laplacian(adj, symmetric=True):
