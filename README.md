@@ -6,18 +6,26 @@ Keras-based implementation of graph convolutional networks for semi-supervised c
 Installation
 ------------
 
+Pip:
+```pip install /path/to/repository```
+
+Distutils:
 ```python setup.py install```
 
 Dependencies
 -----
 
-  * keras (1.0.9 or higher)
-  * TensorFlow or Theano
+  * Keras (2.0.0 or higher)
+  * TensorFlow, Theano, or CNTK (see Keras documentation on how to configure)
 
 Usage
 -----
 
+Basic training with default parameters:
 ```python train.py```
+
+To see help about other parameters:
+```python train.py -h```
 
 References
 ----------
